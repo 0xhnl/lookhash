@@ -19,6 +19,21 @@ git clone https://github.com/0xhnl/lookhash.git
 cd lookhash
 ```
 
+- Split the hashes file before lookup:
+
+```bash
+$ python3 split.py -f sort-raw-hash.txt -o output
+[+] Wrote 500 lines to output/raw-hash-01
+[+] Wrote 500 lines to output/raw-hash-02
+[+] Wrote 500 lines to output/raw-hash-03
+[+] Wrote 500 lines to output/raw-hash-04
+[+] Wrote 500 lines to output/raw-hash-05
+[+] Wrote 500 lines to output/raw-hash-06
+[+] Wrote 500 lines to output/raw-hash-07
+[+] Wrote 500 lines to output/raw-hash-08
+[+] Wrote 191 lines to output/raw-hash-09
+```
+
 - Perform a lookup for a single hash:
 
 ```bash
