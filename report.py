@@ -2,6 +2,9 @@
 
 import argparse
 import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 def parse_hash_file(file_path):
     """
@@ -122,9 +125,44 @@ def match_passwords(hash_data, cracked_passwords):
 
     return matched_data
 
+def apply_styling_to_sheet(worksheet, has_data=True):
+    """
+    Apply Titillium Web font styling and formatting to Excel sheet
+    """
+    if not has_data:
+        return
+        
+    # Apply font to header row
+    header_font = Font(name='Titillium Web', size=11, bold=True)
+    header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+    
+    # Style headers
+    for cell in worksheet[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+    
+    # Apply font to all data cells
+    data_font = Font(name='Titillium Web', size=10)
+    for row in worksheet.iter_rows(min_row=2):
+        for cell in row:
+            cell.font = data_font
+    
+    # Auto-adjust column widths
+    for column in worksheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        worksheet.column_dimensions[column_letter].width = adjusted_width
+
 def save_to_excel(hash_data, matched_data, output_file):
     """
-    Save to Excel file with exactly 2 sheets
+    Save to Excel file with exactly 2 sheets and Titillium Web font styling
     """
     try:
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
@@ -148,12 +186,30 @@ def save_to_excel(hash_data, matched_data, output_file):
                 pd.DataFrame([['No cracked passwords found']], columns=['Message']).to_excel(writer, sheet_name='Cracked_Passwords', index=False)
                 print("Sheet 2 - Cracked_Passwords: 0 entries")
 
-        print(f"Excel file successfully created: {output_file}")
+        # Re-open and apply styling
+        workbook = load_workbook(output_file)
+        
+        # Style All_Hashes sheet
+        if hash_data:
+            apply_styling_to_sheet(workbook['All_Hashes'], has_data=True)
+        else:
+            apply_styling_to_sheet(workbook['All_Hashes'], has_data=False)
+            
+        # Style Cracked_Passwords sheet
+        if matched_data:
+            apply_styling_to_sheet(workbook['Cracked_Passwords'], has_data=True)
+        else:
+            apply_styling_to_sheet(workbook['Cracked_Passwords'], has_data=False)
+        
+        # Save styled workbook
+        workbook.save(output_file)
+        print(f"Excel file successfully created with Titillium Web font: {output_file}")
+        
     except Exception as e:
         print(f"Error saving to Excel: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Parse hash file and match with cracked passwords')
+    parser = argparse.ArgumentParser(description='Parse hash file and match with cracked passwords (Styled with Titillium Web)')
     parser.add_argument('-f', '--file', required=True, help='Input hash file')
     parser.add_argument('-p', '--passwords', required=True, help='Cracked passwords file')
     parser.add_argument('-o', '--output', required=True, help='Output Excel file')
@@ -175,7 +231,7 @@ def main():
     matched_data = match_passwords(hash_data, cracked_passwords)
     print(f"Successfully matched {len(matched_data)} passwords")
 
-    # Save to Excel with 2 sheets
+    # Save to Excel with 2 sheets and styling
     save_to_excel(hash_data, matched_data, args.output)
 
 if __name__ == "__main__":
