@@ -5,10 +5,54 @@ import argparse
 import requests
 import sys
 import time
+import re
 from datetime import datetime
 
 # Base URL for the API
 API_BASE_URL = "https://ntlm.pw/api/lookup"
+
+def extract_nt_hashes(input_file, output_file):
+    """Extract NT hashes from various hash formats"""
+    print(f"[*] Extracting NT hashes from {input_file}...")
+    
+    nt_hashes = set()  # Use set to avoid duplicates
+    
+    try:
+        with open(input_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Pattern for: username:rid:lmhash:nthash:::
+                # or: domain\username:rid:lmhash:nthash:::
+                pattern = r'(?:[^\s:]+\\)?[^\s:]+:\d+:[a-f0-9]{32}:([a-f0-9]{32}):::'
+                match = re.search(pattern, line)
+                
+                if match:
+                    nt_hash = match.group(1)
+                    nt_hashes.add(nt_hash)
+                    print(f"    [+] Extracted: {nt_hash}")
+                else:
+                    # If it's just a plain hash (32 chars hex)
+                    if re.match(r'^[a-f0-9]{32}$', line):
+                        nt_hashes.add(line)
+                        print(f"    [+] Added plain hash: {line}")
+        
+        # Write unique hashes to output file
+        with open(output_file, 'w', encoding='utf-8') as f:
+            for nt_hash in sorted(nt_hashes):
+                f.write(nt_hash + '\n')
+        
+        print(f"[+] Extracted {len(nt_hashes)} unique NT hashes to {output_file}")
+        return len(nt_hashes)
+        
+    except FileNotFoundError:
+        print(f"[!] Error: File '{input_file}' not found")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[!] Error extracting hashes: {e}")
+        sys.exit(1)
 
 def split_file(input_file, output_dir, lines_per_file=500):
     """Split a large file into smaller chunks."""
@@ -125,18 +169,24 @@ def bulk_lookup(hash_type, file_path, output_file=None):
             output_file.write(error_message)
 
 def main():
-    parser = argparse.ArgumentParser(description="Split hash file and perform lookups using the ntlm.pw API.")
+    parser = argparse.ArgumentParser(description="Extract NT hashes and perform lookups using the ntlm.pw API.")
     parser.add_argument(
         "-t", "--type",
-        required=True,
         choices=["nt", "lm", "md5", "sha1", "sha256"],
-        help="Hash type (supported: nt, lm, md5, sha1, sha256)."
+        help="Hash type (if not provided, auto-detected from file format)"
     )
     parser.add_argument("-f", "--file", required=True, help="Input file containing hashes to lookup")
     parser.add_argument("-o", "--output", help="Output file to save results")
     parser.add_argument("--no-split", action="store_true", help="Skip file splitting and process directly")
+    parser.add_argument("--extract-only", action="store_true", help="Only extract hashes, don't perform lookup")
 
     args = parser.parse_args()
+
+    # Auto-detect hash type if not provided
+    hash_type = args.type
+    if not hash_type:
+        hash_type = "nt"  # Default to NT for hashcat/john format
+        print(f"[*] Auto-detected hash type: {hash_type}")
 
     # Open the output file if specified
     output_file = None
@@ -148,24 +198,41 @@ def main():
             sys.exit(1)
 
     try:
+        # Always extract NT hashes first
+        extracted_file = "extracted_nt_hashes.txt"
+        hash_count = extract_nt_hashes(args.file, extracted_file)
+        
+        if args.extract_only:
+            print(f"[+] Extraction complete. Hashes saved to {extracted_file}")
+            return
+            
+        if hash_count == 0:
+            print("[!] No NT hashes found in the input file")
+            return
+
         if args.no_split:
             # Direct lookup without splitting
-            bulk_lookup(args.type, args.file, output_file)
+            print("[*] Performing direct hash lookup...")
+            bulk_lookup(hash_type, extracted_file, output_file)
         else:
             # Split the file first, then process each chunk
-            print("[*] Splitting file into chunks...")
-            split_files = split_file(args.file, "temp_split", 500)
+            print("[*] Splitting extracted hashes into chunks...")
+            split_files = split_file(extracted_file, "temp_split", 500)
             
             print("[*] Performing hash lookups...")
             for split_file_path in split_files:
                 print(f"[*] Processing {split_file_path}...")
-                bulk_lookup(args.type, split_file_path, output_file)
+                bulk_lookup(hash_type, split_file_path, output_file)
             
             # Clean up temporary files
             print("[*] Cleaning up temporary files...")
             for split_file_path in split_files:
                 os.remove(split_file_path)
             os.rmdir("temp_split")
+        
+        # Clean up extracted file
+        if os.path.exists(extracted_file):
+            os.remove(extracted_file)
             
     finally:
         # Ensure the output file is closed if it was opened
