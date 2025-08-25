@@ -19,19 +19,43 @@ git clone https://github.com/0xhnl/lookhash.git
 cd lookhash
 ```
 
-- Split the hashes file before lookup:
+- Split the hashes and lookup those hashes using ntlm.pw:
 
 ```bash
-$ python3 split.py -f sort-raw-hash.txt -o output
-[+] Wrote 500 lines to output/raw-hash-01
-[+] Wrote 500 lines to output/raw-hash-02
-[+] Wrote 500 lines to output/raw-hash-03
-[+] Wrote 500 lines to output/raw-hash-04
-[+] Wrote 500 lines to output/raw-hash-05
-[+] Wrote 500 lines to output/raw-hash-06
-[+] Wrote 500 lines to output/raw-hash-07
-[+] Wrote 500 lines to output/raw-hash-08
-[+] Wrote 191 lines to output/raw-hash-09
+$ python3 lookhash.py -t nt -f secretdump.txt -o results.txt
+[*] Extracting NT hashes from secretdump.txt...
+    [+] Extracted: a1231231231231231231223123123123
+    [+] Extracted: b1231231231231231231223123123123
+    [+] Extracted: c1231231231231231231223123123123
+    [+] Extracted: d1231231231231231231223123123123
+    [+] Extracted: e1231231231231231231223123123123
+    [+] Extracted: f1231231231231231231223123123123
+    [+] Extracted: g1231231231231231231223123123123
+    [+] Extracted: h1231231231231231231223123123123
+    [+] Extracted: i1231231231231231231223123123123
+....
+[+] Extracted 1472 unique NT hashes to extracted_nt_hashes.txt
+[*] Splitting extracted hashes into chunks...
+[+] Wrote 500 lines to temp_split/raw-hash-01
+[+] Wrote 500 lines to temp_split/raw-hash-02
+[+] Wrote 312 lines to temp_split/raw-hash-03
+[*] Performing hash lookups...
+[*] Processing temp_split/raw-hash-01...
+```
+
+- And then create excel report using this:
+
+```bash
+$ python3 report.py -f secretdump.txt -p results.txt -o full-report.xlsx
+Parsing hash file: mottama-dcsync.txt
+Found 3000 hash entries
+Parsing cracked passwords file: output.txt
+Found 67 cracked passwords (excluding [not found])
+Matching passwords with hashes...
+Successfully matched 67 passwords
+Sheet 1 - All_Hashes: 3000 entries
+Sheet 2 - Cracked_Passwords: 67 entries
+Excel file successfully created with Titillium Web font: full-report.xlsx
 ```
 
 - Perform a lookup for a single hash:
@@ -39,15 +63,6 @@ $ python3 split.py -f sort-raw-hash.txt -o output
 ```bash
 $ python3 script.py -t nt -x 66sd423103a39234df59ff82134ccfb20
 66sd423103a39234df59ff82134ccfb20:$ecureP@ssw112
-```
-
-- Bulk Hash Lookup with Output File:
-
-```bash
-$ python3 lookhash.py -t nt -f hashes.txt -o output.txt
-3f52147afd48d6dc736be621d77badee:[not found]
-24aec733b52a2342b225bba08ea69111:[not found]
-...
 ```
 
 # Acknowledgments
