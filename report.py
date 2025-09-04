@@ -98,22 +98,74 @@ def parse_cracked_file(file_path):
 
     return cracked_passwords
 
-def match_passwords(hash_data, cracked_passwords):
+def parse_custom_passwords(file_path):
     """
-    Match cracked passwords with hash data
+    Parse custom passwords file and return a dictionary of hash:password
+    Excludes entries with '[not found]' in the password
+    """
+    custom_passwords = {}
+
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
+            for line in file:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Skip lines with [not found]
+                if '[not found]' in line.lower():
+                    continue
+
+                # Handle different formats
+                password = None
+                hash_value = None
+
+                # Format: hash:password
+                if ':' in line:
+                    parts = line.split(':', 1)
+                    if len(parts) == 2:
+                        hash_value = parts[0].strip().lower()
+                        password = parts[1].strip()
+                # Format: hash password (space separated)
+                elif ' ' in line:
+                    parts = line.split(' ', 1)
+                    if len(parts) == 2:
+                        hash_value = parts[0].strip().lower()
+                        password = parts[1].strip()
+
+                # Only add if both hash and password are valid and not containing '[not found]'
+                if hash_value and password and '[not found]' not in password.lower():
+                    custom_passwords[hash_value] = password
+    except FileNotFoundError:
+        print(f"Error: Custom passwords file '{file_path}' not found.")
+        return {}
+    except Exception as e:
+        print(f"Error reading custom passwords file: {e}")
+        return {}
+
+    return custom_passwords
+
+def match_passwords(hash_data, cracked_passwords, custom_passwords=None):
+    """
+    Match cracked passwords with hash data (including custom passwords)
     """
     matched_data = []
+
+    # Combine cracked and custom passwords
+    all_passwords = cracked_passwords.copy()
+    if custom_passwords:
+        all_passwords.update(custom_passwords)
 
     for entry in hash_data:
         nt_hash = entry['NT Hash'].lower()
         lm_hash = entry['LM Hash'].lower()
 
-        # Check if NT hash or LM hash exists in cracked passwords
+        # Check if NT hash or LM hash exists in all passwords
         password = None
-        if nt_hash in cracked_passwords:
-            password = cracked_passwords[nt_hash]
-        elif lm_hash in cracked_passwords:
-            password = cracked_passwords[lm_hash]
+        if nt_hash in all_passwords:
+            password = all_passwords[nt_hash]
+        elif lm_hash in all_passwords:
+            password = all_passwords[lm_hash]
 
         # Only include entries where password was found
         if password:
@@ -212,6 +264,7 @@ def main():
     parser = argparse.ArgumentParser(description='Parse hash file and match with cracked passwords (Styled with Titillium Web)')
     parser.add_argument('-f', '--file', required=True, help='Input hash file')
     parser.add_argument('-p', '--passwords', required=True, help='Cracked passwords file')
+    parser.add_argument('-cp', '--custom-passwords', help='Custom passwords file with hash:password pairs')
     parser.add_argument('-o', '--output', required=True, help='Output Excel file')
 
     args = parser.parse_args()
@@ -226,10 +279,17 @@ def main():
     cracked_passwords = parse_cracked_file(args.passwords)
     print(f"Found {len(cracked_passwords)} cracked passwords (excluding [not found])")
 
-    # Match passwords with hashes
+    # Parse custom passwords file if provided
+    custom_passwords = {}
+    if args.custom_passwords:
+        print(f"Parsing custom passwords file: {args.custom_passwords}")
+        custom_passwords = parse_custom_passwords(args.custom_passwords)
+        print(f"Found {len(custom_passwords)} custom password entries (excluding [not found])")
+
+    # Match passwords with hashes (including custom passwords)
     print("Matching passwords with hashes...")
-    matched_data = match_passwords(hash_data, cracked_passwords)
-    print(f"Successfully matched {len(matched_data)} passwords")
+    matched_data = match_passwords(hash_data, cracked_passwords, custom_passwords)
+    print(f"Successfully matched {len(matched_data)} passwords (including custom passwords)")
 
     # Save to Excel with 2 sheets and styling
     save_to_excel(hash_data, matched_data, args.output)
