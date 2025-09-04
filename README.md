@@ -43,11 +43,31 @@ $ python3 lookhash.py -t nt -f secretdump.txt -o results.txt
 [*] Processing temp_split/raw-hash-01...
 ```
 
+- Lookup the custom passwords:
+
+```bash
+$ python3 cuslook.py -f "hash-sploit-folder/*" -p 'P@ssw0rd123' -o cus.txt -a 
+Found 9 files to process
+Generated NTLM hash for password 'P@ssw0rd123': 123123123123123123123123123
+Processing hash-sploit-folder/raw-hash-01...
+Processing hash-sploit-folder/raw-hash-06...
+Processing hash-sploit-folder/raw-hash-08...
+Processing hash-sploit-folder/raw-hash-09...
+Processing hash-sploit-folder/raw-hash-07...
+Processing hash-sploit-folder/raw-hash-05...
+Processing hash-sploit-folder/raw-hash-02...
+Processing hash-sploit-folder/raw-hash-03...
+Processing hash-sploit-folder/raw-hash-04...
+Total hashes processed: 4449
+Appending to cus.txt
+Found 1 matches out of 4449 hashes
+```
+
 - And then create excel report using this:
 
 ```bash
-$ python3 report.py -f secretdump.txt -p results.txt -o full-report.xlsx
-Parsing hash file: mottama-dcsync.txt
+$ python3 report.py -f secretdump.txt -p results.txt -cp cus.txt -o full-report.xlsx
+Parsing hash file: cus-dcsync.txt
 Found 3000 hash entries
 Parsing cracked passwords file: output.txt
 Found 67 cracked passwords (excluding [not found])
@@ -56,7 +76,7 @@ Successfully matched 67 passwords
 Sheet 1 - All_Hashes: 3000 entries
 Sheet 2 - Cracked_Passwords: 67 entries
 Excel file successfully created with Titillium Web font: full-report.xlsx
-```
+``` 
 
 - Perform a lookup for a single hash:
 
